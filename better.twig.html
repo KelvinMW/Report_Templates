@@ -1,0 +1,37 @@
+{% if config.includeAverage == 'Y' %}
+    <tr>
+        <td class="border-top border-bottom border-left">
+            <b>{{ __('Average') }}</b>
+        </td>
+        {% for assessment in allAssessments %}
+            {% set colspan = assessment.attainmentActive == 'Y' and assessment.effortActive == 'Y' ? 2 : 1 %}
+
+            {% if assessment.attainmentActive == 'Y' %}
+                {% set sum = 0 %}
+                {% set count = 0 %}
+                {% for course, assessments in internalAssessmentByCourse.courses %}
+                    {% set attainmentValue = assessments[assessment.name].attainmentValue %}
+                    {% if attainmentValue is not null and attainmentValue is not empty %}
+                        {% set sum = sum + attainmentValue|number_format %}
+                        {% set count = count + 1 %}
+                    {% endif %}
+                {% endfor %}
+                {% if count > 0 %}
+                    <td class="border-top border-bottom border-left {{ loop.last and colspan == 1 ? 'border-right' }}">
+                        {{- (sum / count)|round(1) }}
+                    </td>
+                {% else %}
+                    <td class="border-top border-bottom border-left {{ loop.last and colspan == 1 ? 'border-right' }}">
+                        -
+                    </td>
+                {% endif %}
+            {% endif %}
+
+            {% if assessment.effortActive == 'Y' %}
+                <td class="border-top border-bottom {{ colspan == 1 ? 'border-left' }} {{ loop.last ? 'border-right' }}">
+                    &nbsp;
+                </td>
+            {% endif %}
+        {% endfor %}
+    </tr>
+{% endif %}

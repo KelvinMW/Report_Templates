@@ -1,0 +1,22 @@
+{% for assessment in allAssessments %}
+{% set colspan = assessment.attainmentActive == 'Y' and assessment.effortActive == 'Y' ? 2 : 1 %}
+{% if assessment.attainmentActive == 'Y' %}
+    {% set sum = 0 %}
+    {% set count = 0 %}
+    {% for course, assessments in internalAssessmentByCourse.courses %}
+        {% set attainmentValue = assessments[assessment.name].attainmentValue %}
+        {% if attainmentValue is not null and attainmentValue is not empty %}
+            {% set sum = sum + attainmentValue|number_format %}
+            {% set count = count + 1 %}
+        {% endif %}
+    {% endfor %}
+    {% if count > 0 %}
+
+            {{- (sum / count)|round(1) }}
+    {% else %}
+            -
+    {% endif %}
+{% endif %}
+{% if assessment.effortActive == 'Y' %}
+{% endif %}
+{% endfor %}

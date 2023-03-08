@@ -1,0 +1,13 @@
+{% set blankCount = []%}
+
+{% for assessment in allAssessments %}
+{% set assessmentName = assessment.name %}
+{% set count = 0 %}
+
+{% for course, assessments in internalAssessmentByCourse.courses %}
+    {% if assessments[assessmentName].attainmentValue is empty %}
+        {% set count = count + 1 %}
+    {% endif %}
+{% endfor %}
+
+{% endfor %}
