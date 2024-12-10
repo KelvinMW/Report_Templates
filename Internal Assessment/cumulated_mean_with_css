@@ -1,0 +1,148 @@
+{{- stylesheet ? include(stylesheet) -}}
+{% set totalArray = {} %}
+{% set courseCounts = {} %}
+{% set finalMeanScores = {} %}
+
+{% if config.limitByReportingCycle == 'Y' %}
+ {% set allAssessments = internalAssessmentByCourse.assessments|filter(a => (a.completeDate >= reportingCycle.dateStart and a.completeDate <= reportingCycle.dateEnd) ) %}
+{% else %}
+ {% set allAssessments = internalAssessmentByCourse.assessments %}
+{% endif %}
+
+{% set allAssessments = allAssessments|sort((a, b) => a.completeDate <=> b.completeDate) %}
+
+{% for assessment in allAssessments %}
+ {% if assessment.attainmentActive == 'Y' %}
+  {% set totalArray = totalArray|merge({ (assessment.name) : 0 }) %}
+  {% set courseCounts = courseCounts|merge({ (assessment.name) : 0 }) %}
+  {% set finalMeanScores = finalMeanScores|merge({ (assessment.name) : [] }) %}
+ {% endif %}
+{% endfor %}
+
+<table class="table w-full"> 
+ {# Header rows #}
+ <thead>
+    <tr>
+      <th class="header bg-primary border px-4 py-2 text-center" rowspan="2">
+        {{ __('Courses') }}
+      </th>
+      {% for assessment in allAssessments %}
+        {% if assessment.attainmentActive == 'Y' %}
+          <th class="header bg-primary border px-4 py-2 text-center" colspan="2">
+            {{ assessment.name }}
+          </th>
+        {% endif %}
+      {% endfor %}
+    </tr>
+    <tr>
+      {% for assessment in allAssessments %}
+        {% if assessment.attainmentActive == 'Y' %}
+          <th class="header bg-primary border px-4 py-2 text-center">
+            {{ __('Attainment') }}
+          </th>
+          <th class="header bg-primary border px-4 py-2 text-center">
+            {{ __('Grade') }}
+          </th>
+        {% endif %}
+      {% endfor %}
+    </tr>
+  </thead>
+  <tbody>
+    {# Data rows #}
+    {% for course, assessments in internalAssessmentByCourse.courses %}
+      <tr>
+        <td class="border px-4 py-2 text-center">
+          {{ course }}
+        </td>
+        {% for key, assessment in allAssessments %}
+          {% if assessment.attainmentActive == 'Y' %}
+            {% set attainmentValue = assessments[assessment.name].attainmentValue|number_format %}
+            <td class="border px-4 py-2 text-center">
+              {{ attainmentValue > 0 ? attainmentValue : '' }}
+            </td>
+            <td class="border px-4 py-2 text-center">
+              {% if attainmentValue > 0 %}
+                {{ attainmentValue >= 85 ? 'A' :
+                  attainmentValue >= 70 ? 'B' :
+                  attainmentValue >= 50 ? 'C' : 'D' }}
+                {% set total = totalArray[assessment.name] + attainmentValue %}
+                {% set totalArray = totalArray|merge({ (assessment.name): total }) %}
+                {% set courseCounts = courseCounts|merge({ (assessment.name): (courseCounts[assessment.name] + 1) }) %}
+                {% set finalMeanScores = finalMeanScores|merge({ (assessment.name): (finalMeanScores[assessment.name] is not empty ? finalMeanScores[assessment.name]|merge([attainmentValue]) : [attainmentValue]) }) %}
+              {% else %}
+                {{- '' }}
+              {% endif %}
+            </td>
+          {% endif %}
+        {% endfor %}
+      </tr> 
+    {% endfor %}
+    
+    {# Display the Total row #}
+    <tr>
+      <th class="bg-secondary border px-4 py-2 text-center font-bold">
+        {{ __('Total Marks') }}
+      </th>
+      {% for assessment in allAssessments %}
+        {% if assessment.attainmentActive == 'Y' %}
+          {% set averageValue = courseCounts[assessment.name] > 0 ? (totalArray[assessment.name] / courseCounts[assessment.name]) : 0 %}
+          <th class="bg-secondary border px-4 py-2 text-center font-bold" colspan="2">
+            {{ totalArray[assessment.name] > 0 ? totalArray[assessment.name] : '' }}
+          </th>
+        {% else %}
+          <th class="border px-4 py-2 text-center" colspan="2">&nbsp;</th>
+        {% endif %}
+      {% endfor %}
+    </tr>
+
+    {# Display the average row #}
+    <tr>
+      <th class="bg-secondary border px-4 py-2 text-center font-bold">
+        {{ __('Average') }}
+      </th>
+      {% for assessment in allAssessments %}
+        {% if assessment.attainmentActive == 'Y' %}
+          {% set averageValue = courseCounts[assessment.name] > 0 ? (totalArray[assessment.name] / courseCounts[assessment.name]) : 0 %}
+          <th class="bg-secondary border px-4 py-2 text-center font-bold" colspan="2">
+            {{ averageValue > 0 ? averageValue|round(2) : '' }}
+          </th>
+        {% else %}
+          <th class="border px-4 py-2 text-center" colspan="2">&nbsp;</th>
+        {% endif %}
+      {% endfor %}
+    </tr>
+  </tbody>
+</table>
+
+{# Calculate the final mean score across all assessments #}
+{% set finalMeanScore = 0 %}
+{% set numberOfAverages = 0 %}
+{% for assessment in allAssessments %}
+ {% if assessment.attainmentActive == 'Y' and finalMeanScores[assessment.name]|length > 0 %}
+  {% set assessmentTotal = 0 %}
+  {% for score in finalMeanScores[assessment.name] %}
+   {% set assessmentTotal = assessmentTotal + score %}
+  {% endfor %}
+  {% set finalMeanScore = finalMeanScore + (assessmentTotal / finalMeanScores[assessment.name]|length) %}
+  {% set numberOfAverages = numberOfAverages + 1 %}
+ {% endif %}
+{% endfor %}
+{% set finalMeanScore = numberOfAverages > 0 ? (finalMeanScore / numberOfAverages)|round(2) : 0 %}
+
+
+<div class="mt-4"> 
+  <div class="flex items-center">
+    <span class="font-bold mr-4">{{ __('Final Mean Score:') }}</span>
+    <span>{{ finalMeanScore > 0 ? finalMeanScore : '' }}</span>
+  </div>
+  <div class="flex items-center mt-2">
+    <span class="font-bold mr-4">{{ __('Promoted To Next Class Status:') }}</span>
+    <span>
+      {% if (finalMeanScore < 50) %}
+        {{'Might Be Retained'}}
+      {% elseif (finalMeanScore >= 50) %}
+        {{'Good Progress'}}
+      {% endif %}
+    </span>
+  </div>
+</div> 
